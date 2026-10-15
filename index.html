@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Slow Breath</title>
+<meta name="description" content="A breathing guide with adjustable timings, a breath curve, cello tones and vibration.">
+<meta name="theme-color" content="#e8efee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1c21" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Slow Breath">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root { color-scheme: light; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+[hidden] { display: none !important; }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Instrument+Serif&display=swap">
+<style>
+/* Layout: one calm column. Big orb on top, the breath curve under it, steppers last. */
+:root {
+  --bg: #e8efee;
+  --surface: #f5f9f8;
+  --fg: #12302f;
+  --muted: #587371;
+  --line: #bcd0cd;
+  --accent: #1d7a71;
+  --accent-soft: #1d7a7126;
+  --warm: #b4703a;
+  --warm-soft: #b4703a24;
+  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-body: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1c21;
+    --surface: #12292f;
+    --fg: #e2efed;
+    --muted: #8caeaa;
+    --line: #27454a;
+    --accent: #5fd0c0;
+    --accent-soft: #5fd0c029;
+    --warm: #e8a56b;
+    --warm-soft: #e8a56b26;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1c21;
+  --surface: #12292f;
+  --fg: #e2efed;
+  --muted: #8caeaa;
+  --line: #27454a;
+  --accent: #5fd0c0;
+  --accent-soft: #5fd0c029;
+  --warm: #e8a56b;
+  --warm-soft: #e8a56b26;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.app {
+  max-width: 460px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 28px;
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+.presets { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.chip:hover { color: var(--fg); border-color: var(--muted); }
+.chip[aria-pressed="true"] { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); }
+
+.stage { display: grid; place-items: center; padding: 6px 0 0; }
+.orb-wrap {
+  position: relative;
+  width: min(76vw, 310px);
+  aspect-ratio: 1;
+  max-width: 100%;
+  display: grid;
+  place-items: center;
+}
+.ring {
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  border: 1px dashed var(--line);
+}
+.orb {
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 38%, var(--accent-soft), var(--accent-soft) 40%, transparent 100%), var(--accent-soft);
+  border: 2px solid var(--accent);
+  transform: scale(0.5);
+  will-change: transform;
+  transition: border-color 0.5s, background-color 0.5s;
+}
+.orb[data-phase="out"] { border-color: var(--warm); background: radial-gradient(circle at 50% 38%, var(--warm-soft), var(--warm-soft) 40%, transparent 100%), var(--warm-soft); }
+.orb[data-phase="hold1"], .orb[data-phase="hold2"] { border-color: var(--muted); }
+.readout { position: relative; text-align: center; pointer-events: none; }
+.phase {
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1.1;
+}
+.count {
+  font-size: 15px;
+  color: var(--muted);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+  min-height: 1.4em;
+}
+
+.curve-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 14px 10px;
+}
+svg.curve { display: block; width: 100%; height: auto; overflow: visible; }
+.curve .base { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 4; }
+.curve .path { fill: none; stroke: var(--line); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.curve .trail { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.curve .ball { fill: var(--accent); stroke: var(--surface); stroke-width: 3; }
+.legend {
+  display: flex; justify-content: space-between; gap: 6px;
+  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted);
+  padding: 8px 2px 0;
+}
+.legend span { min-width: 0; text-align: center; }
+
+.controls { display: flex; align-items: center; gap: 12px; }
+.go {
+  flex: 1;
+  font: inherit; font-weight: 600; font-size: 17px;
+  color: var(--bg);
+  background: var(--accent);
+  border: 0; border-radius: 14px;
+  padding: 15px 20px;
+  cursor: pointer;
+}
+.go:hover { filter: brightness(1.06); }
+.ghost {
+  font: inherit; font-size: 14px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+.ghost:hover { color: var(--fg); border-color: var(--muted); }
+.stats {
+  display: flex; justify-content: space-between;
+  font-size: 13px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-top: -8px;
+}
+
+.settings {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 4px 16px;
+}
+.row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.row:last-child { border-bottom: 0; }
+.row .name { min-width: 0; }
+.row .name b { font-weight: 500; display: block; }
+.row .name small { color: var(--muted); font-size: 12px; }
+.stepper { display: flex; align-items: center; gap: 4px; }
+.stepper button {
+  width: 40px; height: 40px;
+  font: inherit; font-size: 20px; line-height: 1;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.stepper button:hover { border-color: var(--accent); }
+.stepper button:disabled { opacity: 0.35; cursor: default; border-color: var(--line); }
+.vibe-ctl { display: flex; align-items: center; gap: 10px; flex: none; }
+.vibe-ctl .chip { padding: 8px 14px; }
+.switch:disabled, .chip:disabled { opacity: 0.4; cursor: default; }
+.stepper input.val {
+  width: 64px; height: 40px;
+  text-align: center;
+  font: inherit; font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 0;
+}
+.stepper input.val:focus { outline: none; border-color: var(--accent); background: var(--accent-soft); }
+.stepper button { touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.bar { height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: -14px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); }
+.stepper output {
+  min-width: 56px; text-align: center;
+  font-variant-numeric: tabular-nums; font-weight: 500;
+}
+.switch {
+  appearance: none;
+  width: 46px; height: 28px;
+  border-radius: 99px;
+  background: var(--line);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex: none;
+}
+.switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--bg);
+  transition: transform 0.2s;
+}
+.switch:checked { background: var(--accent); }
+.switch:checked::after { transform: translateX(18px); }
+
+button:focus-visible, .switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .orb, .switch, .switch::after { transition: none; }
+}
+</style>
+
+</head>
+<body>
+<main class="app">
+  <div class="top">
+    <h1>Slow Breath</h1>
+    <div class="presets" id="presets" role="group" aria-label="Presets"></div>
+  </div>
+
+  <section class="stage" aria-label="Breathing guide">
+    <div class="orb-wrap">
+      <div class="ring"></div>
+      <div class="orb" id="orb" data-phase="idle"></div>
+      <div class="readout">
+        <div class="phase" id="phase">Ready</div>
+        <div class="count" id="count">Press start</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="curve-card" aria-label="Breath curve">
+    <svg class="curve" id="curve" viewBox="0 0 320 96" role="img" aria-label="Your breathing pattern over one cycle">
+      <defs><clipPath id="clip"><rect id="clipRect" x="0" y="-10" width="0" height="120"></rect></clipPath></defs>
+      <line class="base" id="baseTop" x1="8" x2="312" y1="14" y2="14"></line>
+      <line class="base" id="baseBot" x1="8" x2="312" y1="82" y2="82"></line>
+      <path class="path" id="pathFull" d=""></path>
+      <path class="trail" id="pathTrail" d="" clip-path="url(#clip)"></path>
+      <circle class="ball" id="ball" r="8" cx="8" cy="82"></circle>
+    </svg>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <div class="controls">
+    <button class="go" id="go" type="button">Start</button>
+    <button class="ghost" id="reset" type="button">Reset</button>
+  </div>
+  <div class="stats"><span id="cycles">0 breaths</span><span id="elapsed">0:00</span></div>
+  <div class="bar" id="bar" hidden><i id="barFill"></i></div>
+
+  <section class="settings" aria-label="Timing">
+    <div class="row">
+      <div class="name"><b>Session length</b><small>minutes, 0 for no limit</small></div>
+      <div class="stepper" data-key="session"><button type="button" data-d="-1" aria-label="Shorter session">−</button><input class="val" type="text" inputmode="numeric" autocomplete="off"><button type="button" data-d="1" aria-label="Longer session">+</button></div>
+    </div>
+    <div class="row">
+      <div class="name"><b>Breathe in</b><small>seconds</small></div>
+      <div class="stepper" data-key="in"><button type="button" data-d="-1" aria-label="Shorter breathe in">−</button><input class="val" type="text" inputmode="decimal" autocomplete="off"><button type="button" data-d="1" aria-label="Longer breathe in">+</button></div>
+    </div>
+    <div class="row">
+      <div class="name"><b>Hold</b><small>after breathing in</small></div>
+      <div class="stepper" data-key="hold1"><button type="button" data-d="-1" aria-label="Shorter hold">−</button><input class="val" type="text" inputmode="decimal" autocomplete="off"><button type="button" data-d="1" aria-label="Longer hold">+</button></div>
+    </div>
+    <div class="row">
+      <div class="name"><b>Breathe out</b><small>seconds</small></div>
+      <div class="stepper" data-key="out"><button type="button" data-d="-1" aria-label="Shorter breathe out">−</button><input class="val" type="text" inputmode="decimal" autocomplete="off"><button type="button" data-d="1" aria-label="Longer breathe out">+</button></div>
+    </div>
+    <div class="row">
+      <div class="name"><b>Hold</b><small>after breathing out</small></div>
+      <div class="stepper" data-key="hold2"><button type="button" data-d="-1" aria-label="Shorter hold">−</button><input class="val" type="text" inputmode="decimal" autocomplete="off"><button type="button" data-d="1" aria-label="Longer hold">+</button></div>
+    </div>
+    <div class="row">
+      <div class="name"><b>Cello sound</b><small>a note for each in and out</small></div>
+      <input type="checkbox" class="switch" id="sound" checked aria-label="Cello sound">
+    </div>
+    <div class="row">
+      <div class="name"><b>Vibration</b><small id="vibeNote">builds on the way in, fades on the way out</small></div>
+      <div class="vibe-ctl"><button type="button" class="chip" id="vibeTest">Try it</button><input type="checkbox" class="switch" id="vibe" aria-label="Vibration"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  var STORE = "slow-breath-v1";
+  var KEYS = ["in", "hold1", "out", "hold2"];
+  var LABEL = { "in": "Breathe in", hold1: "Hold", out: "Breathe out", hold2: "Hold" };
+  var LIMITS = { "in": [1, 20], hold1: [0, 30], out: [1, 20], hold2: [0, 30], session: [0, 120] };
+  var STEP = { "in": 0.1, hold1: 0.1, out: 0.1, hold2: 0.1, session: 1 };
+  var NAMES = { "in": "Breathe in seconds", hold1: "Hold after breathing in, seconds", out: "Breathe out seconds", hold2: "Hold after breathing out, seconds", session: "Session length in minutes" };
+  var PRESETS = [
+    { name: "4·4·4·4", v: { "in": 4, hold1: 4, out: 4, hold2: 4 } },
+    { name: "4·7·8", v: { "in": 4, hold1: 7, out: 8, hold2: 0 } },
+    { name: "5·5", v: { "in": 5, hold1: 0, out: 5, hold2: 0 } }
+  ];
+
+  var cfg = { "in": 4, hold1: 4, out: 4, hold2: 4, sound: true, vibrate: false, session: 5 };
+  try {
+    var saved = JSON.parse(localStorage.getItem(STORE) || "null");
+    if (saved) KEYS.concat(["sound", "vibrate", "session"]).forEach(function (k) { if (saved[k] !== undefined) cfg[k] = saved[k]; });
+  } catch (e) {}
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(cfg)); } catch (e) {} }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var orb = $("orb"), phaseEl = $("phase"), countEl = $("count");
+  var go = $("go"), resetBtn = $("reset");
+  var pathFull = $("pathFull"), pathTrail = $("pathTrail"), ball = $("ball"), clipRect = $("clipRect");
+  var W = 320, H = 96, PADX = 8, TOP = 14, BOT = 82;
+
+  function ease(p) { return (1 - Math.cos(Math.PI * p)) / 2; }
+  function total() { return KEYS.reduce(function (s, k) { return s + cfg[k]; }, 0); }
+
+  function locate(ct) {
+    var acc = 0;
+    for (var i = 0; i < 4; i++) {
+      var d = cfg[KEYS[i]];
+      if (d > 0 && ct < acc + d) return { idx: i, p: (ct - acc) / d, start: acc, dur: d };
+      acc += d;
+    }
+    return { idx: 3, p: 1, start: acc - cfg.hold2, dur: Math.max(cfg.hold2, 0.001) };
+  }
+  function levelAt(ct) {
+    var s = locate(ct), k = KEYS[s.idx];
+    if (k === "in") return ease(s.p);
+    if (k === "hold1") return 1;
+    if (k === "out") return 1 - ease(s.p);
+    return 0;
+  }
+  function xy(ct) {
+    var T = total();
+    return [PADX + (ct / T) * (W - 2 * PADX), BOT - levelAt(ct) * (BOT - TOP)];
+  }
+
+  function drawCurve() {
+    var T = total(), n = 160, d = "";
+    for (var i = 0; i <= n; i++) {
+      var ct = Math.min((i / n) * T, T - 0.0001);
+      var pt = xy(i === n ? T - 0.0001 : ct);
+      if (i === n) pt[0] = W - PADX;
+      d += (i ? "L" : "M") + pt[0].toFixed(1) + " " + pt[1].toFixed(1);
+    }
+    pathFull.setAttribute("d", d);
+    pathTrail.setAttribute("d", d);
+    var lg = $("legend"), html = "";
+    KEYS.forEach(function (k) {
+      if (cfg[k] > 0) html += '<span style="flex:' + cfg[k] + ' 1 0">' + (k === "in" ? "In" : k === "out" ? "Out" : "Hold") + " " + fmt(cfg[k]) + "</span>";
+    });
+    lg.innerHTML = html;
+  }
+  function fmt(v) { return (Math.round(v * 10) / 10).toString(); }
+
+  function renderSettings() {
+    document.querySelectorAll(".stepper").forEach(function (el) {
+      var k = el.getAttribute("data-key"), lim = LIMITS[k], inp = el.querySelector("input");
+      inp.value = k === "session" ? String(cfg[k]) : cfg[k].toFixed(1);
+      inp.setAttribute("aria-label", NAMES[k]);
+      el.querySelector('[data-d="-1"]').disabled = cfg[k] <= lim[0];
+      el.querySelector('[data-d="1"]').disabled = cfg[k] >= lim[1];
+    });
+    $("sound").checked = !!cfg.sound;
+    $("vibe").checked = !!cfg.vibrate;
+    document.querySelectorAll(".chip").forEach(function (c, i) {
+      var v = PRESETS[i].v;
+      c.setAttribute("aria-pressed", String(KEYS.every(function (k) { return cfg[k] === v[k]; })));
+    });
+  }
+
+  // ---- audio: a bowed-string voice built from two detuned saws, a low-pass filter and a slow vibrato
+  var ctx = null, master = null, voice = null;
+  function ensureAudio() {
+    if (!ctx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      ctx = new AC();
+      master = ctx.createGain();
+      master.gain.value = 0.55;
+      master.connect(ctx.destination);
+    }
+    if (ctx.state === "suspended") ctx.resume();
+    return true;
+  }
+  function stopVoice(fast) {
+    if (!voice) return;
+    var v = voice; voice = null;
+    try {
+      var t = ctx.currentTime;
+      v.gain.gain.cancelScheduledValues(t);
+      v.gain.gain.setValueAtTime(v.gain.gain.value, t);
+      v.gain.gain.linearRampToValueAtTime(0.0001, t + (fast ? 0.12 : 0.3));
+      v.oscs.forEach(function (o) { o.stop(t + (fast ? 0.15 : 0.35)); });
+    } catch (e) {}
+  }
+  function playNote(freq, dur, rising) {
+    if (!cfg.sound || !ensureAudio()) return;
+    stopVoice(true);
+    var t = ctx.currentTime + 0.02;
+    var g = ctx.createGain();
+    var f = ctx.createBiquadFilter();
+    f.type = "lowpass"; f.Q.value = 1.1;
+    var from = rising ? 380 : 1000, to = rising ? 1000 : 380;
+    f.frequency.setValueAtTime(from, t);
+    f.frequency.linearRampToValueAtTime(to, t + dur);
+    var atk = Math.min(0.7, dur * 0.3), rel = Math.min(0.9, dur * 0.35);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.32, t + atk);
+    g.gain.setValueAtTime(0.32, Math.max(t + atk, t + dur - rel));
+    g.gain.linearRampToValueAtTime(0.0001, t + dur);
+    var lfo = ctx.createOscillator(), lfoG = ctx.createGain();
+    lfo.frequency.value = 5.1; lfoG.gain.value = 7;
+    lfo.connect(lfoG);
+    var oscs = [lfo];
+    [[0, 0.5, "sawtooth"], [-7, 0.45, "sawtooth"], [7, 0.45, "sawtooth"], [1200, 0.08, "sine"]].forEach(function (s) {
+      var o = ctx.createOscillator(), og = ctx.createGain();
+      o.type = s[2]; o.frequency.value = freq; o.detune.value = s[0];
+      og.gain.value = s[1];
+      lfoG.connect(o.detune);
+      o.connect(og); og.connect(f);
+      o.start(t); o.stop(t + dur + 0.1);
+      oscs.push(o);
+    });
+    lfo.start(t); lfo.stop(t + dur + 0.1);
+    f.connect(g); g.connect(master);
+    voice = { gain: g, oscs: oscs };
+  }
+  // breathe in: D3, breathe out: A2 (a fifth lower, so the two notes are clearly related but different)
+  function onPhase(idx, remaining) {
+    var k = KEYS[idx];
+    if (k === "in") playNote(146.83, remaining, true);
+    else if (k === "out") playNote(110.0, remaining, false);
+    else stopVoice(false);
+    if (cfg.vibrate) buzz(vibePattern(k, remaining));
+  }
+
+  // ---- vibration: pulses that grow longer while you breathe in and shorter while you breathe out,
+  // two soft taps to mark a hold. The whole phase is sent as one pattern.
+  var canVibe = typeof navigator.vibrate === "function";
+  function buzz(pattern) {
+    if (!canVibe) return false;
+    try { return navigator.vibrate(pattern); } catch (e) { return false; }
+  }
+  function vibePattern(k, dur) {
+    if (k !== "in" && k !== "out") return [30, 90, 30];
+    var n = Math.max(3, Math.min(14, Math.round(dur / 0.7)));
+    var gap = (dur * 1000) / n, out = [];
+    for (var i = 0; i < n; i++) {
+      var f = i / (n - 1);
+      var len = Math.round(k === "in" ? 25 + 85 * f : 110 - 85 * f);
+      len = Math.min(len, Math.round(gap) - 20);
+      out.push(len, Math.round(gap) - len);
+    }
+    return out;
+  }
+
+  // ---- engine
+  // el = seconds of session time. Position in the pattern = el - cycOff, so changing a timing
+  // restarts the pattern but never the session clock.
+  var running = false, finished = false, base = 0, t0 = 0, cycOff = 0, doneCycles = 0, lastIdx = -1, raf = 0, wake = null;
+
+  function elapsedNow() { return base + (running ? (performance.now() - t0) / 1000 : 0); }
+  function fmtTime(s) { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+
+  function paintStats(el) {
+    var n = doneCycles + Math.floor(Math.max(0, el - cycOff) / total());
+    $("cycles").textContent = n + (n === 1 ? " breath" : " breaths");
+    var lim = cfg.session * 60;
+    $("elapsed").textContent = lim > 0 ? fmtTime(el) + " of " + fmtTime(lim) : fmtTime(el);
+    $("barFill").style.width = lim > 0 ? Math.min(100, el / lim * 100).toFixed(1) + "%" : "0%";
+    $("bar").hidden = !(lim > 0);
+  }
+
+  function paint(el) {
+    var T = total(), ct = Math.max(0, el - cycOff) % T;
+    var s = locate(ct), k = KEYS[s.idx];
+    var lvl = levelAt(ct);
+    orb.style.transform = "scale(" + (0.5 + 0.5 * lvl).toFixed(4) + ")";
+    orb.setAttribute("data-phase", k);
+    var p = xy(ct);
+    ball.setAttribute("cx", p[0].toFixed(1));
+    ball.setAttribute("cy", p[1].toFixed(1));
+    clipRect.setAttribute("width", (p[0] + 1).toFixed(1));
+    phaseEl.textContent = LABEL[k];
+    countEl.textContent = Math.max(1, Math.ceil(s.dur - (ct - s.start) - 0.0001)) + "";
+    paintStats(el);
+    return { idx: s.idx, remaining: s.dur - (ct - s.start) };
+  }
+
+  function frame() {
+    if (!running) return;
+    var el = elapsedNow(), lim = cfg.session * 60;
+    if (lim > 0 && el >= lim) { finish(); return; }
+    var r = paint(el);
+    if (r.idx !== lastIdx) { lastIdx = r.idx; onPhase(r.idx, r.remaining); }
+    raf = requestAnimationFrame(frame);
+  }
+
+  function resetVisuals() {
+    orb.setAttribute("data-phase", "idle");
+    ball.setAttribute("cx", PADX); ball.setAttribute("cy", BOT);
+    clipRect.setAttribute("width", 0);
+  }
+
+  function idle() {
+    base = 0; cycOff = 0; doneCycles = 0; running = false; finished = false; lastIdx = -1;
+    cancelAnimationFrame(raf);
+    stopVoice(false);
+    buzz(0);
+    releaseWake();
+    orb.style.transform = "scale(0.5)";
+    resetVisuals();
+    phaseEl.textContent = "Ready";
+    countEl.textContent = "Press start";
+    paintStats(0);
+    go.textContent = "Start";
+  }
+
+  function finish() {
+    var lim = cfg.session * 60;
+    running = false; finished = true; base = lim;
+    cancelAnimationFrame(raf);
+    releaseWake();
+    stopVoice(false);
+    buzz(0);
+    orb.style.transition = "transform 1.6s ease, border-color 0.5s, background-color 0.5s";
+    orb.style.transform = "scale(0.5)";
+    setTimeout(function () { orb.style.transition = ""; }, 1700);
+    resetVisuals();
+    phaseEl.textContent = "Well done";
+    countEl.textContent = fmtTime(lim) + " complete";
+    paintStats(lim);
+    go.textContent = "Start again";
+    playNote(98.0, 4.5, false);
+    if (cfg.vibrate) buzz([220, 120, 220, 120, 400]);
+  }
+
+  function start() {
+    if (finished) idle();
+    if (cfg.sound) ensureAudio();
+    running = true; t0 = performance.now(); lastIdx = -1;
+    go.textContent = "Pause";
+    requestWake();
+    raf = requestAnimationFrame(frame);
+  }
+  function pause() {
+    base = elapsedNow(); running = false;
+    cancelAnimationFrame(raf);
+    stopVoice(false);
+    buzz(0);
+    releaseWake();
+    go.textContent = "Resume";
+  }
+  function requestWake() {
+    try { if (navigator.wakeLock) navigator.wakeLock.request("screen").then(function (l) { wake = l; }, function () {}); } catch (e) {}
+  }
+  function releaseWake() { try { if (wake) wake.release(); } catch (e) {} wake = null; }
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && running) requestWake(); });
+
+  go.addEventListener("click", function () { running ? pause() : start(); });
+  resetBtn.addEventListener("click", idle);
+
+  function changeTiming(mutate) {
+    var el = elapsedNow();
+    doneCycles += Math.floor(Math.max(0, el - cycOff) / total());
+    mutate();
+    cycOff = el; lastIdx = -1;
+    save(); drawCurve(); renderSettings();
+    if (running) { stopVoice(true); buzz(0); }
+    else if (!finished && el > 0) paint(el);
+  }
+  function changeSession(v) {
+    cfg.session = v; save(); renderSettings();
+    paintStats(finished ? base : elapsedNow());
+  }
+  function setValue(k, v) {
+    var lim = LIMITS[k];
+    v = Math.min(lim[1], Math.max(lim[0], v));
+    v = k === "session" ? Math.round(v) : Math.round(v * 10) / 10;
+    if (v === cfg[k]) { renderSettings(); return false; }
+    if (k === "session") changeSession(v);
+    else changeTiming(function () { cfg[k] = v; });
+    return true;
+  }
+
+  document.querySelectorAll(".stepper").forEach(function (el) {
+    var k = el.getAttribute("data-key"), inp = el.querySelector("input");
+    var timer = 0, rep = 0;
+    function stop() { clearTimeout(timer); clearInterval(rep); }
+    function nudge(dir) { if (!setValue(k, cfg[k] + dir * STEP[k])) stop(); }
+    el.querySelectorAll("button").forEach(function (b) {
+      var dir = Number(b.getAttribute("data-d"));
+      b.addEventListener("pointerdown", function (e) {
+        e.preventDefault();
+        stop(); nudge(dir);
+        timer = setTimeout(function () { rep = setInterval(function () { nudge(dir); }, 70); }, 450);
+      });
+      ["pointerup", "pointerleave", "pointercancel"].forEach(function (n) { b.addEventListener(n, stop); });
+      b.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+      b.addEventListener("click", function (e) { if (e.detail === 0) nudge(dir); });
+    });
+    window.addEventListener("pointerup", stop);
+    inp.addEventListener("focus", function () { try { inp.select(); } catch (e) {} });
+    inp.addEventListener("change", function () {
+      var v = parseFloat(String(inp.value).replace(",", "."));
+      if (isNaN(v)) renderSettings(); else setValue(k, v);
+    });
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") inp.blur(); });
+  });
+  $("sound").addEventListener("change", function (e) {
+    cfg.sound = e.target.checked; save();
+    if (!cfg.sound) stopVoice(false);
+    else if (running) { ensureAudio(); lastIdx = -1; }
+  });
+
+  (function () {
+    var sw = $("vibe"), test = $("vibeTest"), note = $("vibeNote");
+    if (!canVibe) {
+      sw.disabled = true; test.disabled = true;
+      note.textContent = "not supported in this browser (works in Chrome on Android)";
+      return;
+    }
+    sw.addEventListener("change", function () {
+      cfg.vibrate = sw.checked; save();
+      if (!cfg.vibrate) buzz(0); else if (running) lastIdx = -1;
+    });
+    test.addEventListener("click", function () {
+      var ok = buzz([30, 70, 60, 70, 100, 70, 140]);
+      note.textContent = ok ? "sent. If you felt nothing, check your phone's vibration and battery saver settings"
+                            : "blocked here. Try opening this page in Chrome";
+    });
+  })();
+
+  var pr = $("presets");
+  PRESETS.forEach(function (p) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = p.name;
+    b.addEventListener("click", function () {
+      changeTiming(function () { KEYS.forEach(function (k) { cfg[k] = p.v[k]; }); });
+    });
+    pr.appendChild(b);
+  });
+
+  drawCurve(); renderSettings(); idle();
+})();
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("sw.js").catch(function () {});
+  });
+}
+</script>
+</body>
+</html>
